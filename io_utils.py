@@ -86,9 +86,9 @@ def telegram2df(json_path):
     return df
 
 
-def msg2df():
-    whatsapp_df = whatsapp2df('data/whatsapp')
-    telegram_df = telegram2df('data/telegram.json')
+def msg2df(telegram_file = 'data/telegram.json', whatsapp_folder = 'data/whatsapp'):
+    whatsapp_df = whatsapp2df(whatsapp_folder)
+    telegram_df = telegram2df(telegram_file)
 
     # Concatenate the DataFrames, keeping all columns
     combined_df = pd.concat([telegram_df, whatsapp_df], ignore_index=True, sort=False)
