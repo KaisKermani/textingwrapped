@@ -10,9 +10,11 @@ import json
 def whatsapp2df(folder_path):
     data = []
     weird_chars = ['\u202a', '\u202c', '\xa0', '\u200e', '\u202f']
+    chat_id_counter = 0
     for file_name in os.listdir(folder_path):
         if file_name.endswith('.zip') and file_name.startswith('WhatsApp Chat - '):
             chat_name = file_name[16:-4]
+            chat_id_counter += 1
             with zipfile.ZipFile(os.path.join(folder_path, file_name), 'r') as zip_ref:
                 for inner_file in zip_ref.namelist():
                     if inner_file.endswith('_chat.txt'):
@@ -37,9 +39,9 @@ def whatsapp2df(folder_path):
                                     else:
                                         msg_type = "text"
 
-                                    data.append([datetime_obj, day_of_the_week, chat_name, person_name, msg_type, msg_content])
+                                    data.append([datetime_obj, day_of_the_week, chat_name, chat_id_counter, person_name, msg_type, msg_content])
 
-    df = pd.DataFrame(data, columns=['datetime', 'day_of_the_week', 'chat_name', 'person_name', 'msg_type', 'msg_content'])
+    df = pd.DataFrame(data, columns=['datetime', 'day_of_the_week', 'chat_name', 'chat_id', 'person_name', 'msg_type', 'msg_content'])
     df.insert(2, 'platform', 'whatsapp')
     chats_participant_count = df.groupby('chat_name')['person_name'].nunique()
     df['chat_type'] = df['chat_name'].apply(lambda x: 'group' if chats_participant_count[x] > 2 else 'dm')
@@ -67,7 +69,7 @@ def telegram2df(json_path):
     for chat in chats:
         chat_name = chat['name']
         chat_id = chat['id']
-        chat_type = 'group' if chat['type'] == 'private_group' else 'dm'
+        chat_type = 'group' if chat['type'] in ['private_group', 'private_supergroup'] else 'dm'
         for message in chat['messages']:
             if message['type'] == 'message':
                 datetime_obj = dt.fromisoformat(message['date'])
@@ -93,6 +95,20 @@ def msg2df(telegram_file = 'data/telegram.json', whatsapp_folder = 'data/whatsap
     # Concatenate the DataFrames, keeping all columns
     combined_df = pd.concat([telegram_df, whatsapp_df], ignore_index=True, sort=False)
     combined_df = combined_df[telegram_df.columns]
+
+    # Add response time column
+    combined_df = combined_df.sort_values(by=['chat_name', 'datetime'])
+
+    # Add sent and received columns
+    combined_df['sent'] = combined_df['person_name'].str.lower().eq('kais')
+    combined_df['received'] = ~combined_df['sent']
+
+    # Group by chat_name and calculate the response time
+    combined_df['previous_datetime'] = combined_df.groupby('chat_id')['datetime'].shift(1)
+    combined_df['response_time'] = combined_df['datetime'] - combined_df['previous_datetime']
+
+    # Drop the temporary column
+    combined_df = combined_df.drop(columns=['previous_datetime'])
 
     return combined_df
 
