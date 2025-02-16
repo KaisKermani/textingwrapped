@@ -23,6 +23,8 @@ def whatsapp2df(folder_path):
                             content = content.translate(str.maketrans('', '', ''.join(weird_chars)))
                             messages = content.split('\r\n')
                             for line in messages:
+                                if "Messages and calls are end-to-end encrypted. No one outside of this chat" in line:
+                                    continue
                                 match = re.match(r'\[(\d{2}\.\d{2}\.\d{2}), (\d{2}:\d{2}:\d{2})\] (.*?): (.*)', line)
                                 if match:
                                     date_str, time_str, person_name, msg_content = match.groups()
@@ -39,27 +41,15 @@ def whatsapp2df(folder_path):
                                     else:
                                         msg_type = "text"
 
-                                    data.append([datetime_obj, day_of_the_week, chat_name, chat_id_counter, person_name, msg_type, msg_content])
+                                    word_count = len(msg_content.split())
+                                    data.append([datetime_obj, day_of_the_week, chat_name, chat_id_counter, person_name, msg_type, msg_content, word_count])
 
-    df = pd.DataFrame(data, columns=['datetime', 'day_of_the_week', 'chat_name', 'chat_id', 'person_name', 'msg_type', 'msg_content'])
+    df = pd.DataFrame(data, columns=['datetime', 'day_of_the_week', 'chat_name', 'chat_id', 'person_name', 'msg_type', 'msg_content', 'word_count'])
     df.insert(2, 'platform', 'whatsapp')
     chats_participant_count = df.groupby('chat_name')['person_name'].nunique()
     df['chat_type'] = df['chat_name'].apply(lambda x: 'group' if chats_participant_count[x] > 2 else 'dm')
     df.insert(4, 'chat_type', df.pop('chat_type'))
     return df
-
-
-def extract_text(text):
-    has_link = False
-    if isinstance(text, list):
-        full_text = ''
-        for item in text:
-            if isinstance(item, dict) and item.get('type') == 'link':
-                has_link = True
-            full_text += item['text'] if isinstance(item, dict) else item
-        return full_text, has_link
-    return text, has_link
-
 
 def telegram2df(json_path):
     with open(json_path, 'r', encoding='utf-8') as file:
@@ -79,13 +69,24 @@ def telegram2df(json_path):
                 msg_content, has_link = extract_text(message['text'])
                 msg_type = message.get('mime_type', 'text')
 
-                data.append([datetime_obj, day_of_the_week, chat_name, chat_id, chat_type, person_name, person_id, msg_type, has_link, msg_content])
+                word_count = len(msg_content.split())
+                data.append([datetime_obj, day_of_the_week, chat_name, chat_id, chat_type, person_name, person_id, msg_type, has_link, msg_content, word_count])
 
-    df = pd.DataFrame(data,
-                      columns=['datetime', 'day_of_the_week', 'chat_name', 'chat_id', 'chat_type', 'person_name', 'person_id', 'msg_type', 'has_link',
-                               'msg_content'])
+    df = pd.DataFrame(data, columns=['datetime', 'day_of_the_week', 'chat_name', 'chat_id', 'chat_type', 'person_name', 'person_id', 'msg_type', 'has_link', 'msg_content', 'word_count'])
     df.insert(2, 'platform', 'telegram')
     return df
+
+
+def extract_text(text):
+    has_link = False
+    if isinstance(text, list):
+        full_text = ''
+        for item in text:
+            if isinstance(item, dict) and item.get('type') == 'link':
+                has_link = True
+            full_text += item['text'] if isinstance(item, dict) else item
+        return full_text, has_link
+    return text, has_link
 
 
 def msg2df(telegram_file = 'data/telegram.json', whatsapp_folder = 'data/whatsapp'):

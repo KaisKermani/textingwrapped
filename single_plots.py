@@ -129,7 +129,7 @@ def top_10_message_count(msg_df):
     ))
 
     fig.update_layout(
-        title='Top 10 Chats by Message Count',
+        title='Message Counts',
         xaxis_title='Chat Name',
         yaxis_title='# Messages',
     )
@@ -156,10 +156,67 @@ def messages_per_platform_histogram(msg_df):
     return fig
 
 
+def word_count_sent_received(msg_df):
+    # Add a column to indicate message type
+    msg_df['message_type'] = msg_df['sent'].apply(lambda x: 'sent' if x else 'received')
+
+    # Group by platform and message type, and calculate total word count and number of messages
+    platform_msg = msg_df.groupby(['platform', 'message_type']).agg(
+        total_word_count=('word_count', 'sum'),
+        message_count=('word_count', 'count')
+    ).reset_index()
+
+    # Calculate the average word count
+    platform_msg['average_word_count'] = platform_msg['total_word_count'] / platform_msg['message_count']
+
+    # Create the bar chart with ordered colors
+    fig = px.bar(platform_msg, x='platform', y='average_word_count', color='message_type',
+                 barmode='group', title='Average Word Count per Message Type and Platform',
+                 category_orders={'message_type': ['sent', 'received']})  # Example colors
+    fig.update_layout(xaxis_title="Platform", yaxis_title="Average Word Count")
+    return fig
+
+
+def response_time_distplot(msg_df):
+    # Define the bins and labels
+    bins = [0, 10, 60, 300, 1200, 3600, 18000, 43200, 172800, 604800, 2592000, 7776000, 15768000, 31536000, 94608000]
+    labels = ['0-10secs', '10-60secs', '1-5mins', '5-20mins', '20mins-1hr', '1-5hrs', '5-12hrs', '12hrs-2days',
+              '2days-1week', '1week-1month', '1month-3months', '3-6months', '6months-1year', '1year-3years']
+
+    # Create a new column for the binned response times
+    msg_df['response_time_bins'] = pd.cut(msg_df['response_time'].dt.total_seconds(), bins=bins, labels=labels, right=False)
+
+    # Map the boolean 'sent' column to 'Sent' and 'Received'
+    msg_df['sent'] = msg_df['sent'].map({True: 'Sent', False: 'Received'})
+
+    # Create the histogram
+    fig = px.histogram(
+        msg_df,
+        x='response_time_bins',
+        color='sent',
+        title='Distribution of Response Time for Sent and Received Messages',
+        category_orders={'response_time_bins': labels, 'sent': ['Sent', 'Received']},
+        barmode='group'  # Set barmode to 'group' to place bins next to each other
+    )
+    fig.update_layout(
+        xaxis_title='Response Time',
+        yaxis_title='Count'
+    )
+
+    return fig
+
 if __name__ == '__main__':
     msg_df = msg2df()
     # Filter only chats of type 'dm' and messages from the year 2025
     msg_df = msg_df[(msg_df['chat_type'] == 'dm') & (msg_df['datetime'].dt.year == 2024)]
 
-    fig = messages_per_platform_histogram(msg_df)
+    unique_chats = msg_df[['chat_name', 'platform', 'chat_id']].drop_duplicates().dropna()
+    unique_chats['display_name'] = unique_chats['chat_name'] + ' - ' + unique_chats['platform']
+    unique_chats = pd.concat([
+        unique_chats[unique_chats['display_name'].str[0].str.isalpha()].sort_values(by='display_name'),
+        unique_chats[~unique_chats['display_name'].str[0].str.isalpha()].sort_values(by='display_name')
+    ])
+
+    # msg_df = msg_df[msg_df['chat_id'] == 308786296]
+    fig = response_time_distplot(msg_df)
     fig.show()
