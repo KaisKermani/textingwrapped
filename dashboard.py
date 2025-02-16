@@ -190,7 +190,9 @@ def display_page(pathname):
         dbc.NavbarSimple(
             children=[
                 dbc.NavItem(dbc.NavLink("DMs", href="/dms")),
-                dbc.NavItem(dbc.NavLink("Groups", href="/groups"))
+                dbc.NavItem(dbc.NavLink("Groups", href="/groups")),
+                # TODO: Add a new page for facts
+                dbc.NavItem(dbc.NavLink("Facts 💅🏻", href="/facts"))
             ],
             brand="Texting Wrapped",
             color="light",
