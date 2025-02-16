@@ -197,10 +197,12 @@ def response_time_distplot(msg_df):
         title='Distribution of Response Time for Sent and Received Messages',
         category_orders={'response_time_bins': labels, 'sent': ['Sent', 'Received']},
         barmode='group'  # Set barmode to 'group' to place bins next to each other
+
     )
     fig.update_layout(
         xaxis_title='Response Time',
-        yaxis_title='Count'
+        yaxis_title='Count',
+        yaxis_type='log'
     )
 
     return fig
